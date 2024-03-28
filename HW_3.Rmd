@@ -1,0 +1,158 @@
+# Домашнее задание 3
+
+## Тема: расчет описательных статистик.
+
+В первых двух заданиях вам необходимо посчитать описательные статистики. Для количественной переменной рассчитайте число наблюдений, среднее, стандартное отклонение, 1-й и 3-й квартили, минимум и максимум. Для категориальной переменной определите абсолютную и относительные частоты.
+
+```{r}
+# Загрузка библиотек
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library(tidyverse)
+```
+
+
+```{r}
+# Чтение и предварительная обработка данных
+pima_data <- read_excel(path = "data/pima.xlsx") %>%
+  na.omit()
+```
+
+## Необходимо выполнить следующие пункты:
+
+1.  Рассчитайте описательные статистики для переменных glucose, pressure, mass. — 1 балл
+
+```{r}
+# Способ получения описательной статистики
+summary(pima_data$glucose)
+summary(pima_data$pressure)
+summary(pima_data$mass)
+```
+
+```{r}
+# Функция для расчета описательных статистик
+calculate_descriptive_stats <- function(data, variable_name) {
+  data %>%
+    summarise(
+      count = n(),
+      mean = mean({{variable_name}}, na.rm = TRUE),
+      sd = sd({{variable_name}}, na.rm = TRUE),
+      q1 = quantile({{variable_name}}, 0.25, na.rm = TRUE),
+      q3 = quantile({{variable_name}}, 0.75, na.rm = TRUE),
+      min = min({{variable_name}}, na.rm = TRUE),
+      max = max({{variable_name}}, na.rm = TRUE)
+    )
+}
+```
+
+```{r}
+# Расчет описательных статистик для переменных glucose, pressure, mass
+glucose_stats <- calculate_descriptive_stats(pima_data, glucose)
+pressure_stats <- calculate_descriptive_stats(pima_data, pressure)
+mass_stats <- calculate_descriptive_stats(pima_data, mass)
+```
+
+```{r}
+# Вывод результатов
+glucose_stats
+pressure_stats
+mass_stats
+```
+
+2.  Рассчитайте описательную статистику для переменной diabetes. Создайте на основе переменной age новую переменную age_group, которая будет отражать следующие возрастные группы: 21–35, 36–49 и 50+. Посчитайте описательную статистику для новой переменной. — 1 балл
+
+```{r}
+# Расчет абсолютной и относительной частоты для diabetes
+diabetes_frequency <- pima_data %>%
+  count(diabetes) %>%
+  mutate(percent = n / sum(n) * 100)
+```
+
+```{r}
+# Создание переменной age_group
+pima_data <- pima_data %>%
+  mutate(age_group = case_when(
+    age >= 21 & age <= 35 ~ "21–35",
+    age >= 36 & age <= 49 ~ "36–49",
+    TRUE ~ "50+"
+  ))
+```
+
+```{r}
+# Расчет абсолютной и относительной частоты для age_group
+age_group_stats <- pima_data %>%
+  count(age_group) %>%
+  mutate(percent = n / sum(n) * 100)
+```
+
+```{r}
+# Вывод результатов
+diabetes_frequency
+age_group_stats
+```
+
+3.  Определите 90% доверительный интервал для переменной pedigree. — 2 балла
+
+```{r}
+# Расчет доверительного интервала для pedigree
+pedigree_mean <- mean(pima_data$pedigree)
+pedigree_sd <- sd(pima_data$pedigree)
+sample_size <- nrow(pima_data)
+z_score <- qnorm(0.95)
+se <- pedigree_sd / sqrt(sample_size)
+ci_lower <- pedigree_mean - z_score * se
+ci_upper <- pedigree_mean + z_score * se
+```
+
+```{r}
+# Вывод результатов
+cat("90% доверительный интервал для pedigree:", ci_lower, "-", ci_upper, "\n")
+```
+
+4.  Постройте график плотности вероятности для переменной glucose и отметьте на нем среднее значение. Для той же переменной постройте гистограмму. Постройте два ящика с усами для значений pos и neg соответственно переменной diabetes. — 3 балла
+
+```{r}
+# График плотности с средним значением для glucose
+ggplot(pima_data, aes(x = glucose)) +
+  geom_density(fill = "lightblue") +
+  geom_vline(xintercept = mean(pima_data$glucose, na.rm = TRUE), color = "red", linetype = "dashed") +
+  labs(title = "Плотность уровня глюкозы с средним значением")
+```
+
+```{r}
+# Гистограмма для glucose
+ggplot(pima_data, aes(x = glucose)) +
+  geom_histogram(binwidth = 10, fill = "lightblue", color = "blue") +
+  geom_vline(xintercept = mean(pima_data$glucose, na.rm = TRUE), color = "red", linetype = "dashed") +
+  labs(title = "Гистограмма уровня глюкозы")
+```
+
+```{r}
+# Боксплоты для glucose по группам diabetes
+ggplot(pima_data, aes(x = diabetes, y = glucose, fill = diabetes)) +
+  geom_boxplot() +
+  labs(title = "Боксплот уровня глюкозы по наличию диабета", x = "Наличие диабета", y = "Уровень глюкозы") + theme_minimal()
+```
+
+5.  Постройте на одном графике две диаграммы рассеяния для наличия или отсутствия диабета. По оси X представьте значения обхвата трицепса, а по оси Y — массу тела. Выполните окрашивание, заливку и группирование по переменной diabetes. — 3 балла
+
+```{r}
+# Очистка данных от нулевых значений в triceps и mass
+pima_cleaned <- pima_data %>%
+  filter(triceps != 0, mass != 0)
+```
+
+```{r}
+# Диаграмма рассеяния с окрашиванием и группировкой по diabetes
+ggplot(pima_cleaned, aes(x = triceps, y = mass, color = diabetes)) + 
+  geom_point() + 
+  facet_grid(. ~ diabetes) +  # Разделение графика на подграфики по наличию/отсутствию диабета
+  labs(
+    title = "Взаимосвязь обхвата трицепса и массы тела с учетом наличия диабета",
+    x = "Обхват трицепса (мм)",
+    y = "Масса тела"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("pos" = "red", "neg" = "blue"))
+```
